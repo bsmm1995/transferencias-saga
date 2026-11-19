@@ -14,10 +14,16 @@ dependencies {
     implementation("io.quarkus:quarkus-hibernate-validator")
     implementation("io.quarkus:quarkus-smallrye-health")
     implementation("io.quarkus:quarkus-smallrye-openapi")
+    implementation("io.quarkus:quarkus-container-image-jib")
 
     testImplementation("io.quarkus:quarkus-junit")
     testImplementation("io.rest-assured:rest-assured")
     testImplementation(project(":libs:architecture-rules"))
+}
+
+// Images are built only on request: ./gradlew build -Dquarkus.container-image.build=true
+quarkus {
+    set("container-image.group", "transfer-saga")
 }
 
 tasks.withType<Test>().configureEach {

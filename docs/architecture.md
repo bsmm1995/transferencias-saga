@@ -115,6 +115,9 @@ The rules are enforced by [`HexagonalArchitectureRules`](../libs/architecture-ru
 3. The domain does not log: it reports through return values and events.
 4. Adapters reach use cases only through `port/in` interfaces, never through `application.service` classes.
 5. Driving adapters (`adapter/in`) and driven adapters (`adapter/out`) never depend on each other.
+6. `port/in` holds one interface per file, named `*UseCase`; its commands and results are nested in it.
+7. `application/service` holds only use case implementations; shared helpers live in their own package
+   (for example `application/idempotency`).
 
 Use cases are wired in a composition root (`infrastructure/config/UseCaseConfiguration`) with CDI producers, so they
 carry no framework annotation. Transactions are explicit through the `UnitOfWork` port, which keeps every saga step a
@@ -184,9 +187,13 @@ flowchart LR
 ```
 
 - `saga.java-conventions`: Java 25 toolchain, Lombok, JUnit platform, compiler flags.
-- `saga.quarkus-service-conventions`: Quarkus plugin, the BOM as an enforced platform, the shared libs and the common extensions.
+- `saga.quarkus-service-conventions`: Quarkus plugin, the BOM as an enforced platform, the shared libs, the common extensions
+  and Jib container images (`-Dquarkus.container-image.build=true`, group `transfer-saga`, tag = project version).
 - `openApiServer(...)` / `openApiClient(...)`: generate code into `build/generated/openapi`, add it to the sources, and serve the
   contract itself as the service's OpenAPI document (`mp.openapi.scan.disable=true`): what is published is exactly what was designed.
+
+CI ([`.github/workflows/build.yml`](../.github/workflows/build.yml)) runs `./gradlew build` on every push to `main` and
+every pull request, so the architecture rules and the integration tests guard each change.
 
 To add a service: create `services/<name>/build.gradle.kts` with `id("saga.quarkus-service-conventions")`, include it in
 `settings.gradle.kts`, add its contract under `contracts/openapi` and call `openApiServer(...)`.

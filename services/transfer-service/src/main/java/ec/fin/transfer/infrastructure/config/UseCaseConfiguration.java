@@ -1,5 +1,6 @@
 package ec.fin.transfer.infrastructure.config;
 
+import ec.fin.transfer.application.idempotency.IdempotencyPolicy;
 import ec.fin.transfer.application.port.out.EventOutbox;
 import ec.fin.transfer.application.port.out.IdempotencyStore;
 import ec.fin.transfer.application.port.out.LedgerPort;
@@ -9,7 +10,6 @@ import ec.fin.transfer.application.port.out.TransferReadModel;
 import ec.fin.transfer.application.port.out.TransferRepository;
 import ec.fin.transfer.application.port.out.UnitOfWork;
 import ec.fin.transfer.application.service.IdempotencyKeyPurgeService;
-import ec.fin.transfer.application.service.IdempotencyPolicy;
 import ec.fin.transfer.application.service.InitiateTransferService;
 import ec.fin.transfer.application.service.SagaOrchestrator;
 import ec.fin.transfer.application.service.TransferQueryService;

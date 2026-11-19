@@ -1,6 +1,6 @@
 package ec.fin.corebanking.infrastructure.adapter.in.rest;
 
-import ec.fin.corebanking.application.port.in.LedgerUseCases.GetAccountUseCase;
+import ec.fin.corebanking.application.port.in.GetAccountUseCase;
 import ec.fin.corebanking.domain.model.Account;
 import ec.fin.corebanking.infrastructure.adapter.in.rest.api.AccountsApi;
 import jakarta.ws.rs.core.Response;

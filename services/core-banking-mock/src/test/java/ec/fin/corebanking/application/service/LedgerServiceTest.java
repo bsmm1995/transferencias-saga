@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import ec.fin.commons.error.BusinessRuleViolationException;
 import ec.fin.commons.error.ConflictException;
-import ec.fin.corebanking.application.port.in.LedgerUseCases.PostingCommand;
+import ec.fin.corebanking.application.port.in.PostLedgerOperationUseCase.PostingCommand;
 import ec.fin.corebanking.domain.model.OperationType;
 import ec.fin.corebanking.domain.model.ReversalOutcome;
 import ec.fin.corebanking.infrastructure.adapter.out.memory.InMemoryAccountRepository;

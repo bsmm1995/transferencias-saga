@@ -1,6 +1,8 @@
 package ec.fin.transfer.application.service;
 
 import ec.fin.commons.error.ConflictException;
+import ec.fin.transfer.application.idempotency.IdempotencyPolicy;
+import ec.fin.transfer.application.idempotency.RequestFingerprint;
 import ec.fin.transfer.application.port.in.InitiateTransferUseCase;
 import ec.fin.transfer.application.port.out.DuplicateIdempotencyKeyException;
 import ec.fin.transfer.application.port.out.EventOutbox;

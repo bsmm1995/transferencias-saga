@@ -1,8 +1,12 @@
 package ec.fin.architecture;
 
+import static com.tngtech.archunit.lang.conditions.ArchConditions.implement;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 
+import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 
@@ -16,6 +20,7 @@ public final class HexagonalArchitectureRules {
   private static final String APPLICATION = "..application..";
   private static final String INFRASTRUCTURE = "..infrastructure..";
   private static final String APPLICATION_SERVICES = "..application.service..";
+  private static final String INBOUND_PORTS = "..application.port.in..";
   private static final String ADAPTERS = "..infrastructure.adapter..";
   private static final String DRIVING_ADAPTERS = "..infrastructure.adapter.in..";
   private static final String DRIVEN_ADAPTERS = "..infrastructure.adapter.out..";
@@ -65,6 +70,25 @@ public final class HexagonalArchitectureRules {
       .should().dependOnClassesThat().resideInAPackage(DRIVING_ADAPTERS)
       .because("driven adapters are called by the core and must not know how it is triggered")
       .allowEmptyShould(true);
+
+  @ArchTest
+  static final ArchRule useCasePortsAreNamedUseCase = classes()
+      .that().resideInAPackage(INBOUND_PORTS).and().areTopLevelClasses().and().doNotHaveSimpleName("package-info")
+      .should().beInterfaces().andShould().haveSimpleNameEndingWith("UseCase")
+      .because("port/in holds one use case contract per file; its commands and results are nested in it")
+      .allowEmptyShould(true);
+
+  @ArchTest
+  static final ArchRule applicationServicesImplementUseCases = classes()
+      .that().resideInAPackage(APPLICATION_SERVICES).and().areTopLevelClasses()
+      .and().doNotHaveSimpleName("package-info")
+      .should(implement(inboundPort()))
+      .because("application/service holds only use case implementations; helpers live in their own package")
+      .allowEmptyShould(true);
+
+  private static DescribedPredicate<JavaClass> inboundPort() {
+    return JavaClass.Predicates.resideInAPackage(INBOUND_PORTS).as("a port/in use case");
+  }
 
   private HexagonalArchitectureRules() {
   }

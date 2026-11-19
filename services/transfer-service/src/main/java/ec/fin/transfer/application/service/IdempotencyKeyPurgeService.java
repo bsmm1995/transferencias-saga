@@ -1,5 +1,6 @@
 package ec.fin.transfer.application.service;
 
+import ec.fin.transfer.application.idempotency.IdempotencyPolicy;
 import ec.fin.transfer.application.port.in.PurgeExpiredIdempotencyKeysUseCase;
 import ec.fin.transfer.application.port.out.IdempotencyStore;
 import ec.fin.transfer.application.port.out.UnitOfWork;

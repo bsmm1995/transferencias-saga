@@ -1,4 +1,4 @@
-package ec.fin.transfer.application.service;
+package ec.fin.transfer.application.idempotency;
 
 import ec.fin.transfer.application.port.in.InitiateTransferUseCase.InitiateTransferCommand;
 import java.nio.charset.StandardCharsets;
@@ -9,12 +9,12 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 /** SHA-256 of the business payload. Detects an idempotency key reused with a different request. */
-final class RequestFingerprint {
+public final class RequestFingerprint {
 
   private RequestFingerprint() {
   }
 
-  static String of(InitiateTransferCommand command) {
+  public static String of(InitiateTransferCommand command) {
     String canonical = String.join("|", Stream.of(
             command.customerId(),
             command.sourceAccount(),

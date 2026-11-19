@@ -1,4 +1,4 @@
-package ec.fin.transfer.application.service;
+package ec.fin.transfer.application.idempotency;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

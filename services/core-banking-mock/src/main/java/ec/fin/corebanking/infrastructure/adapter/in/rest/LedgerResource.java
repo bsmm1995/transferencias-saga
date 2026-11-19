@@ -1,9 +1,9 @@
 package ec.fin.corebanking.infrastructure.adapter.in.rest;
 
-import ec.fin.corebanking.application.port.in.LedgerUseCases.PostLedgerOperationUseCase;
-import ec.fin.corebanking.application.port.in.LedgerUseCases.PostingCommand;
-import ec.fin.corebanking.application.port.in.LedgerUseCases.PostingResult;
-import ec.fin.corebanking.application.port.in.LedgerUseCases.ReverseLedgerOperationUseCase;
+import ec.fin.corebanking.application.port.in.PostLedgerOperationUseCase;
+import ec.fin.corebanking.application.port.in.PostLedgerOperationUseCase.PostingCommand;
+import ec.fin.corebanking.application.port.in.PostLedgerOperationUseCase.PostingResult;
+import ec.fin.corebanking.application.port.in.ReverseLedgerOperationUseCase;
 import ec.fin.corebanking.domain.model.LedgerOperation;
 import ec.fin.corebanking.domain.model.OperationType;
 import ec.fin.corebanking.domain.model.ReversalOutcome;

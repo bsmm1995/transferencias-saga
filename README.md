@@ -45,6 +45,7 @@ flowchart LR
 
 ```
 .
+├── .github/workflows/           CI: ./gradlew build on every push to main and every pull request
 ├── build-logic/                 Gradle convention plugins (Java 25 toolchain, Lombok, Quarkus, OpenAPI codegen)
 ├── contracts/openapi/           API-first contracts: transfer, core banking, fraud (single source of truth)
 ├── libs/
@@ -68,9 +69,10 @@ Each service follows the same hexagonal layout:
 ec.fin.<service>
 ├── domain/            entities, value objects, domain services, events — plain Java
 ├── application/
-│   ├── port/in/       use case interfaces (what the service offers)
+│   ├── port/in/       one use case interface per file, named *UseCase (commands and results nested in it)
 │   ├── port/out/      ports the use cases need (repositories, participants, transactions)
-│   └── service/       use case implementations — plain Java, no framework annotations
+│   ├── service/       use case implementations only — plain Java, no framework annotations
+│   └── <topic>/       application helpers shared by use cases (e.g. transfer-service idempotency/)
 └── infrastructure/
     ├── adapter/in/    REST resources (implement generated interfaces), Kafka consumers, schedulers
     ├── adapter/out/   persistence, REST clients (generated), Kafka publishers, outbox
@@ -157,6 +159,12 @@ DB_PASSWORD=transfers SWAGGER_UI_ENABLED=true java -jar services/transfer-servic
 In prod mode the transfer service has no default database password and serves Swagger UI only when
 `SWAGGER_UI_ENABLED=true`, as in the last command above.
 
+Container images (Jib, no Dockerfile; tagged `transfer-saga/<service>:<version>` in the local Docker):
+
+```bash
+./gradlew build -x test -Dquarkus.container-image.build=true
+```
+
 | Service | URL | Swagger UI |
 |---|---|---|
 | transfer-service | http://localhost:8080 | http://localhost:8080/q/swagger-ui |
@@ -197,7 +205,7 @@ Every scenario (happy paths, rejections, compensations, chaos, lost payments) is
 | Level | What it proves | Needs Docker |
 |---|---|---|
 | Domain unit tests (`TransferSagaTest`, `RailRouterTest`, `RiskPolicyTest`, `LedgerServiceTest`…) | every saga transition, backoff, compensation order, idempotency rules | no |
-| Architecture tests (`ArchitectureTest` in each service) | domain and application never depend on Quarkus, Jakarta, Hibernate, Jackson or Kafka; layers only point inwards | no |
+| Architecture tests (`ArchitectureTest` in each service) | domain and application never depend on Quarkus, Jakarta, Hibernate, Jackson or Kafka; layers only point inwards; adapters use `port/in` only and never each other; use case naming | no |
 | Integration (`TransferSagaIT`) | the full saga inside the service with a real PostgreSQL (Testcontainers), real outbox and scheduler; participants mocked at their ports, Kafka replaced by the in-memory connector | yes |
 | REST tests (`LedgerResourceTest`) | contract, status codes and problem details of the core mock | no |
 | Manual end-to-end | four real services, Kafka and PostgreSQL, chaos injection | yes |

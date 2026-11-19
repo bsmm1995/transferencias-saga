@@ -1,4 +1,4 @@
-package ec.fin.transfer.application.service;
+package ec.fin.transfer.application.idempotency;
 
 import java.time.Duration;
 import java.time.Instant;
