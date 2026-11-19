@@ -126,6 +126,21 @@ What Quarkus gives you in dev mode:
 - **Continuous testing**: press `r` in the terminal to run the tests of that service on every change.
 - `-Ddebug=500x` gives each service its own remote debug port.
 
+### Option C — IntelliJ IDEA (docker compose infrastructure + services in the IDE)
+
+```bash
+docker compose up -d     # PostgreSQL, Kafka and Kafka UI only
+```
+
+The shared run configurations in `.run/` appear in IntelliJ automatically:
+
+1. **1. Run services → `<service> (dev)`** runs `quarkusDev` with the `local` profile: dev mode (live reload,
+   Dev UI) wired to the docker-compose PostgreSQL and Kafka instead of Dev Services containers.
+2. **2. Attach debugger → `<service> (attach debugger)`** attaches to ports 5005–5008 and reconnects on its own.
+
+There are no `main` classes on purpose: Quarkus generates the entry point at build time, and launching a
+`@QuarkusMain` from the IDE in a Gradle build fails with class loader conflicts in dev mode.
+
 ### Option B — prod mode (jars + docker compose)
 
 ```bash
