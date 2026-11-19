@@ -15,7 +15,7 @@ or prod mode:
 
 ```bash
 docker compose up -d                 # PostgreSQL, Kafka, topics, Kafka UI
-./scripts/start-all.ps1              # Windows: build and start the 4 jars (logs in ./logs)
+./gradlew assemble -x test          # then the four java -jar commands in the README
 ```
 
 See the [README](../README.md#quick-start) for details.
@@ -126,7 +126,7 @@ API answers `503` with `Retry-After`, and no transfer is created, so retrying wi
 ### Crash in the middle of a saga
 
 1. Start an SPI transfer (scenario 3); it waits about 3 s for the clearing result.
-2. Stop the transfer service right away (`./scripts/stop-all.ps1`, or Ctrl+C in dev mode).
+2. Stop the transfer service right away (Ctrl+C in its terminal).
 3. Start it again. The payment result waits in Kafka and the consumer applies it on restart; anything overdue is
    picked up by the recovery scheduler.
 
@@ -141,7 +141,7 @@ saga switches to compensation, and if the core is still down when those retries 
 | What | Where |
 |---|---|
 | Saga journal of a transfer | `GET /api/v1/transfers/{id}` → `saga.steps` |
-| Logs with correlation id | `logs/*.log` (`[cid:...]`); send `X-Correlation-Id` to choose it |
+| Logs with correlation id | each service's console output (`[cid:...]`); send `X-Correlation-Id` to choose it |
 | Messages per topic | Kafka UI <http://localhost:8090> → Topics → `payment-orders`, `payment-results`, `transfer-events` |
 | Database (dev mode) | `psql -h localhost -p 5433 -U transfers -d transfers` (password `transfers`), or Dev UI → Agroal → Database view |
 | Database (prod mode) | `docker compose exec postgres psql -U transfers -d transfers` |

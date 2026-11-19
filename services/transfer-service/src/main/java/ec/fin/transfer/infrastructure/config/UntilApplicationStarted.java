@@ -1,4 +1,4 @@
-package ec.fin.transfer.infrastructure.adapter.in.scheduler;
+package ec.fin.transfer.infrastructure.config;
 
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.scheduler.Scheduled.SkipPredicate;

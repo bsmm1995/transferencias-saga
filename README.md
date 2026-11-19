@@ -59,7 +59,6 @@ flowchart LR
 │   └── payment-connector-mock/  Central bank (RPI/SPI) simulator over Kafka
 ├── docs/                        Architecture, saga walkthrough, testing guide, ADRs
 ├── http/transfers.http          Ready-to-run requests (VS Code REST Client / IntelliJ HTTP client)
-├── scripts/                     start-all.ps1 / stop-all.ps1
 └── docker-compose.yml           PostgreSQL, Kafka, topic creation and Kafka UI
 ```
 
@@ -147,15 +146,6 @@ There are no `main` classes on purpose: Quarkus generates the entry point at bui
 docker compose up -d     # PostgreSQL :5432, Kafka :9092, topics (kafka-init), Kafka UI http://localhost:8090
 ```
 
-Windows PowerShell, one command:
-
-```powershell
-./scripts/start-all.ps1          # builds, starts the 4 jars in background, waits until ready
-./scripts/stop-all.ps1           # stops them; logs are in ./logs
-```
-
-Any OS:
-
 ```bash
 ./gradlew assemble -x test
 java -jar services/core-banking-mock/build/quarkus-app/quarkus-run.jar
@@ -165,7 +155,7 @@ DB_PASSWORD=transfers SWAGGER_UI_ENABLED=true java -jar services/transfer-servic
 ```
 
 In prod mode the transfer service has no default database password and serves Swagger UI only when
-`SWAGGER_UI_ENABLED=true`; `start-all.ps1` sets both for local use.
+`SWAGGER_UI_ENABLED=true`, as in the last command above.
 
 | Service | URL | Swagger UI |
 |---|---|---|

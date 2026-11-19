@@ -60,7 +60,7 @@ The implementation follows the L3 diagram of the platform proposal one to one:
 | Adaptador Antifraude | [`FraudEngineRiskAdapter`](../services/transfer-service/src/main/java/ec/fin/transfer/infrastructure/adapter/out/risk/FraudEngineRiskAdapter.java) + `FraudEngineGateway` |
 | Adaptador Ledger | [`CoreBankingLedgerAdapter`](../services/transfer-service/src/main/java/ec/fin/transfer/infrastructure/adapter/out/ledger/CoreBankingLedgerAdapter.java) + `CoreBankingGateway` |
 | Repositorio | [`TransferPersistenceAdapter`](../services/transfer-service/src/main/java/ec/fin/transfer/infrastructure/adapter/out/persistence/TransferPersistenceAdapter.java), [`OutboxEventAppender`](../services/transfer-service/src/main/java/ec/fin/transfer/infrastructure/adapter/out/messaging/outbox/OutboxEventAppender.java), [`QuarkusUnitOfWork`](../services/transfer-service/src/main/java/ec/fin/transfer/infrastructure/adapter/out/persistence/QuarkusUnitOfWork.java) |
-| Publicador Outbox | [`OutboxRelay`](../services/transfer-service/src/main/java/ec/fin/transfer/infrastructure/adapter/out/messaging/outbox/OutboxRelay.java) driven by [`SagaJobs`](../services/transfer-service/src/main/java/ec/fin/transfer/infrastructure/adapter/in/scheduler/SagaJobs.java) |
+| Publicador Outbox | [`OutboxRelay`](../services/transfer-service/src/main/java/ec/fin/transfer/infrastructure/adapter/out/messaging/outbox/OutboxRelay.java) driven by its own [`OutboxRelayJobs`](../services/transfer-service/src/main/java/ec/fin/transfer/infrastructure/adapter/out/messaging/outbox/OutboxRelayJobs.java) schedule |
 | Consumidor de Resultados | [`PaymentResultConsumer`](../services/transfer-service/src/main/java/ec/fin/transfer/infrastructure/adapter/in/messaging/PaymentResultConsumer.java) |
 | Adaptador Core (ACL) | `core-banking-mock` (canonical ledger contract) |
 | Motor Antifraude | `fraud-mock` |
@@ -89,7 +89,7 @@ flowchart LR
     end
     subgraph out [Driven adapters]
         jpa[Persistence<br/>Hibernate + Panache]
-        outbox[Outbox appender + relay]
+        outbox[Outbox appender + scheduled relay]
         ledger[CoreBankingLedgerAdapter<br/>generated REST client]
         risk[FraudEngineRiskAdapter<br/>generated REST client]
         uow[QuarkusUnitOfWork]
@@ -113,6 +113,8 @@ The rules are enforced by [`HexagonalArchitectureRules`](../libs/architecture-ru
 1. `domain` and `application` do not depend on `jakarta`, `io.quarkus`, `io.smallrye`, `org.hibernate`, `com.fasterxml` or Kafka.
 2. `infrastructure` is accessed by nobody; `application` only by `infrastructure`; `domain` by both.
 3. The domain does not log: it reports through return values and events.
+4. Adapters reach use cases only through `port/in` interfaces, never through `application.service` classes.
+5. Driving adapters (`adapter/in`) and driven adapters (`adapter/out`) never depend on each other.
 
 Use cases are wired in a composition root (`infrastructure/config/UseCaseConfiguration`) with CDI producers, so they
 carry no framework annotation. Transactions are explicit through the `UnitOfWork` port, which keeps every saga step a

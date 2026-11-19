@@ -4,7 +4,9 @@ build/
 .idea/
 *.iml
 .vscode/
-out/
+/out/
+**/out/production/
+**/out/test/
 bin/
 .quarkus/
 *.log

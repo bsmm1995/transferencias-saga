@@ -140,8 +140,7 @@ Kafka: Dev UI → Apache Kafka Client → `payment-orders`, `payment-results`, `
 
 ```bash
 docker compose up -d
-./scripts/start-all.ps1        # or the four java -jar commands in the README
-./scripts/stop-all.ps1
+./gradlew assemble -x test     # then the four java -jar commands in the README
 docker compose down
 ```
 
