@@ -1,0 +1,135 @@
+### Saga scenarios — VS Code "REST Client" or IntelliJ HTTP Client.
+### {{$guid}} creates a new Idempotency-Key per request; replace it with a fixed value to test replays.
+
+@transfers = http://localhost:8080/api/v1/transfers
+@core = http://localhost:8081/core/v1
+
+### 1. Own bank transfer → COMPLETED
+POST {{transfers}}
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+X-Correlation-Id: demo-own-bank
+
+{"customerId":"C-100","sourceAccount":"1000000001",
+ "beneficiary":{"bankCode":"001","accountNumber":"2000000001","holderName":"Carlos Vega"},
+ "amount":100.00,"currency":"USD","concept":"Rent"}
+
+### 2. Instant interbank transfer (RPI) → COMPLETED
+POST {{transfers}}
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{"customerId":"C-100","sourceAccount":"1000000001",
+ "beneficiary":{"bankCode":"010","accountNumber":"3000000001","holderName":"Pedro Mora"},
+ "amount":50.00,"currency":"USD","concept":"Dinner"}
+
+### 3. Deferred interbank transfer (SPI) → COMPLETED after ~3 s
+POST {{transfers}}
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{"customerId":"C-100","sourceAccount":"1000000001",
+ "beneficiary":{"bankCode":"099","accountNumber":"3000000002","holderName":"Lucia Paz"},
+ "amount":25.00,"currency":"USD"}
+
+### 4. Insufficient funds → REJECTED
+POST {{transfers}}
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{"customerId":"C-200","sourceAccount":"1000000002",
+ "beneficiary":{"bankCode":"001","accountNumber":"2000000001","holderName":"Carlos Vega"},
+ "amount":500.00,"currency":"USD"}
+
+### 5. Blocked source account → REJECTED
+POST {{transfers}}
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{"customerId":"C-300","sourceAccount":"1000000003",
+ "beneficiary":{"bankCode":"001","accountNumber":"2000000001","holderName":"Carlos Vega"},
+ "amount":10.00,"currency":"USD"}
+
+### 6. Credit to a closed account → REVERSED (compensation)
+POST {{transfers}}
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{"customerId":"C-100","sourceAccount":"1000000001",
+ "beneficiary":{"bankCode":"001","accountNumber":"2000000002","holderName":"Sofia Leon"},
+ "amount":40.00,"currency":"USD"}
+
+### 7. Clearing rejects AC01 → REVERSED (compensation)
+POST {{transfers}}
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{"customerId":"C-100","sourceAccount":"1000000001",
+ "beneficiary":{"bankCode":"010","accountNumber":"3000000000","holderName":"Nobody"},
+ "amount":30.00,"currency":"USD"}
+
+### 8. Lost payment order → FAILED after ~45 s (manual reconciliation)
+POST {{transfers}}
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{"customerId":"C-100","sourceAccount":"1000000001",
+ "beneficiary":{"bankCode":"010","accountNumber":"3000007777","holderName":"Lost"},
+ "amount":5.00,"currency":"USD"}
+
+### 9. Fraud engine denies → REJECTED
+POST {{transfers}}
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{"customerId":"C-100","sourceAccount":"1000000001",
+ "beneficiary":{"bankCode":"001","accountNumber":"9999999999","holderName":"Suspicious"},
+ "amount":10.00,"currency":"USD"}
+
+### 10a. Idempotency: send this twice → same transferId, second one with Idempotent-Replayed: true
+POST {{transfers}}
+Content-Type: application/json
+Idempotency-Key: fixed-key-0001
+
+{"customerId":"C-100","sourceAccount":"1000000001",
+ "beneficiary":{"bankCode":"001","accountNumber":"2000000001","holderName":"Carlos Vega"},
+ "amount":1.00,"currency":"USD"}
+
+### 10b. Same key, different payload → 409 IDEMPOTENCY_KEY_REUSED
+POST {{transfers}}
+Content-Type: application/json
+Idempotency-Key: fixed-key-0001
+
+{"customerId":"C-100","sourceAccount":"1000000001",
+ "beneficiary":{"bankCode":"001","accountNumber":"2000000001","holderName":"Carlos Vega"},
+ "amount":2.00,"currency":"USD"}
+
+### 11. Validation → 400 problem details
+POST {{transfers}}
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{"customerId":"C-100","sourceAccount":"123",
+ "beneficiary":{"bankCode":"1","accountNumber":"2000000001","holderName":"Carlos Vega"},
+ "amount":-5,"currency":"USD"}
+
+### Follow a transfer (paste the transferId)
+GET {{transfers}}/00000000-0000-0000-0000-000000000000
+
+### Balances
+GET {{core}}/accounts/1000000001
+
+###
+GET {{core}}/accounts/2000000001
+
+### Chaos: half of the postings apply and then answer 503 (unknown outcome)
+PUT {{core}}/admin/chaos
+Content-Type: application/json
+
+{"failureRate":0.5,"mode":"AFTER_APPLY"}
+
+### Chaos off
+PUT {{core}}/admin/chaos
+Content-Type: application/json
+
+{"failureRate":0,"mode":"BEFORE_APPLY"}

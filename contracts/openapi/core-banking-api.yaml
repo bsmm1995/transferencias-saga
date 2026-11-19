@@ -1,0 +1,251 @@
+openapi: 3.0.3
+info:
+  title: Core Banking API (mock)
+  version: 1.0.0
+  description: >-
+    Canonical ledger contract exposed by the core banking anti-corruption layer. Every posting is
+    idempotent by `operationId`, and reversals tolerate operations that were never applied, so a
+    saga can retry and compensate safely when an outcome is unknown.
+servers:
+  - url: http://localhost:8081
+tags:
+  - name: Ledger
+  - name: Accounts
+  - name: Chaos
+paths:
+  /core/v1/ledger/operations:
+    post:
+      tags: [Ledger]
+      operationId: postLedgerOperation
+      summary: Apply a debit or credit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LedgerOperationRequest'
+      responses:
+        '201':
+          description: Operation applied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LedgerOperation'
+        '200':
+          description: Operation already applied earlier with the same payload (idempotent replay).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LedgerOperation'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          description: Business rejection, e.g. INSUFFICIENT_FUNDS, ACCOUNT_BLOCKED, ACCOUNT_CLOSED, ACCOUNT_NOT_FOUND.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '503':
+          $ref: '#/components/responses/Problem'
+  /core/v1/ledger/operations/{operationId}/reversal:
+    post:
+      tags: [Ledger]
+      operationId: reverseLedgerOperation
+      summary: Reverse an operation (idempotent)
+      parameters:
+        - name: operationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReversalRequest'
+      responses:
+        '200':
+          description: Reversal outcome. NOT_FOUND means there was nothing to reverse.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReversalResult'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '503':
+          $ref: '#/components/responses/Problem'
+  /core/v1/accounts/{accountNumber}:
+    get:
+      tags: [Accounts]
+      operationId: getAccount
+      summary: Get an account and its balance
+      parameters:
+        - name: accountNumber
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9]{10}$'
+      responses:
+        '200':
+          description: Account found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /core/v1/admin/chaos:
+    get:
+      tags: [Chaos]
+      operationId: getChaosSettings
+      summary: Current failure injection settings
+      responses:
+        '200':
+          description: Current settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChaosSettings'
+    put:
+      tags: [Chaos]
+      operationId: updateChaosSettings
+      summary: Inject failures into ledger postings to exercise retries and compensations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChaosSettings'
+      responses:
+        '200':
+          description: Settings applied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChaosSettings'
+        '400':
+          $ref: '#/components/responses/Problem'
+components:
+  responses:
+    Problem:
+      description: Error described as problem details.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    OperationType:
+      type: string
+      enum: [DEBIT, CREDIT]
+    LedgerOperationRequest:
+      type: object
+      required: [operationId, type, accountNumber, amount, currency, reference]
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/OperationType'
+        accountNumber:
+          type: string
+          pattern: '^[0-9]{10}$'
+        amount:
+          type: number
+          minimum: 0.01
+        currency:
+          type: string
+          enum: [USD]
+        reference:
+          type: string
+          maxLength: 140
+    LedgerOperation:
+      type: object
+      required: [operationId, type, accountNumber, amount, currency, status, appliedAt]
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/OperationType'
+        accountNumber:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [APPLIED, REVERSED]
+        appliedAt:
+          type: string
+          format: date-time
+    ReversalRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 200
+    ReversalResult:
+      type: object
+      required: [operationId, outcome]
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        outcome:
+          type: string
+          enum: [REVERSED, ALREADY_REVERSED, NOT_FOUND]
+    Account:
+      type: object
+      required: [accountNumber, holderName, balance, currency, status]
+      properties:
+        accountNumber:
+          type: string
+        holderName:
+          type: string
+        balance:
+          type: number
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, BLOCKED, CLOSED]
+    ChaosSettings:
+      type: object
+      required: [failureRate, mode]
+      properties:
+        failureRate:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Share of ledger postings that answer 503.
+        mode:
+          type: string
+          description: >-
+            BEFORE_APPLY fails without touching the ledger. AFTER_APPLY applies the posting and then
+            answers 503, which is the dangerous "unknown outcome" a saga must survive.
+          enum: [BEFORE_APPLY, AFTER_APPLY]
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        code:
+          type: string
+        correlationId:
+          type: string

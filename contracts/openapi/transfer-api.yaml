@@ -1,0 +1,308 @@
+openapi: 3.0.3
+info:
+  title: Transfer Service API
+  version: 1.0.0
+  description: >-
+    Starts and tracks money transfers. Each transfer is executed by an orchestrated saga
+    (debit, credit or clearing, and compensation), so creation is asynchronous: the client
+    receives 202 and follows the transfer through its resource.
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: Transfers
+paths:
+  /api/v1/transfers:
+    post:
+      tags: [Transfers]
+      operationId: createTransfer
+      summary: Start a transfer
+      description: >-
+        Idempotent by `Idempotency-Key`: retrying with the same key and payload returns the
+        original transfer and the `Idempotent-Replayed: true` header. Reusing the key with a
+        different payload returns 409.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransferRequest'
+      responses:
+        '202':
+          description: Transfer registered. Its final status is reached asynchronously.
+          headers:
+            Location:
+              description: URI of the transfer resource.
+              schema:
+                type: string
+            Idempotent-Replayed:
+              description: Present and `true` when the response replays an earlier request.
+              schema:
+                type: boolean
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/transfers/{transferId}:
+    get:
+      tags: [Transfers]
+      operationId: getTransfer
+      summary: Get a transfer and its saga progress
+      parameters:
+        - name: transferId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Transfer found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferDetails'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        Client-generated key that makes retries safe. A UUID is recommended. The key is remembered for
+        24 hours: retries within that window replay the original transfer; afterwards the key expires and
+        a request carrying it starts a new transfer.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 80
+        pattern: '^[A-Za-z0-9-]+$'
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      description: Propagated to logs, downstream calls and events. Generated when absent.
+      schema:
+        type: string
+        maxLength: 64
+        pattern: '^[A-Za-z0-9-]+$'
+  responses:
+    BadRequest:
+      description: The request is malformed or fails validation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: The resource does not exist.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: The idempotency key was already used with a different payload.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    UnprocessableEntity:
+      description: The request is valid but breaks a business rule.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    InternalError:
+      description: Unexpected error. The body never contains internal details; quote the correlationId to support.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    ServiceUnavailable:
+      description: A dependency needed to accept the transfer is unavailable. Retry with the same key.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    CreateTransferRequest:
+      type: object
+      required: [customerId, sourceAccount, beneficiary, amount, currency]
+      properties:
+        customerId:
+          type: string
+          minLength: 1
+          maxLength: 40
+          pattern: '^[A-Za-z0-9-]+$'
+        sourceAccount:
+          $ref: '#/components/schemas/AccountNumber'
+        beneficiary:
+          $ref: '#/components/schemas/Beneficiary'
+        amount:
+          type: number
+          minimum: 0.01
+          maximum: 1000000
+          example: 125.50
+        currency:
+          type: string
+          enum: [USD]
+        concept:
+          type: string
+          maxLength: 140
+    Beneficiary:
+      type: object
+      required: [bankCode, accountNumber, holderName]
+      properties:
+        bankCode:
+          type: string
+          pattern: '^[0-9]{3}$'
+          example: '001'
+        accountNumber:
+          $ref: '#/components/schemas/AccountNumber'
+        holderName:
+          type: string
+          minLength: 1
+          maxLength: 80
+    AccountNumber:
+      type: string
+      pattern: '^[0-9]{10}$'
+      example: '1000000001'
+    TransferStatus:
+      type: string
+      enum: [PENDING, COMPLETED, REJECTED, REVERSED, FAILED]
+    Rail:
+      type: string
+      description: OWN_BANK settles in the core, INSTANT through the instant payments network, DEFERRED through the SPI.
+      enum: [OWN_BANK, INSTANT, DEFERRED]
+    TransferResponse:
+      type: object
+      required: [transferId, status, createdAt]
+      properties:
+        transferId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/TransferStatus'
+        rail:
+          $ref: '#/components/schemas/Rail'
+        statusReason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    TransferDetails:
+      type: object
+      required: [transferId, status, customerId, sourceAccount, beneficiary, amount, currency, createdAt, updatedAt, saga]
+      properties:
+        transferId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/TransferStatus'
+        rail:
+          $ref: '#/components/schemas/Rail'
+        statusReason:
+          type: string
+        customerId:
+          type: string
+        sourceAccount:
+          type: string
+        beneficiary:
+          $ref: '#/components/schemas/Beneficiary'
+        amount:
+          type: number
+        currency:
+          type: string
+        concept:
+          type: string
+        riskScore:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        saga:
+          $ref: '#/components/schemas/SagaProgress'
+    SagaProgress:
+      type: object
+      required: [state, attempts, steps]
+      properties:
+        state:
+          type: string
+          description: Internal saga state, exposed for learning and troubleshooting.
+          example: AWAITING_PAYMENT_RESULT
+        attempts:
+          type: integer
+        nextAttemptAt:
+          type: string
+          format: date-time
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/SagaStep'
+    SagaStep:
+      type: object
+      required: [step, outcome, attempt, occurredAt]
+      properties:
+        step:
+          type: string
+          example: DEBIT
+        outcome:
+          type: string
+          example: SUCCEEDED
+        attempt:
+          type: integer
+        detail:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+    Problem:
+      type: object
+      description: RFC 9457 (formerly RFC 7807) problem details.
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        code:
+          type: string
+          description: Stable, machine-readable error code.
+        correlationId:
+          type: string
+        violations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Violation'
+    Violation:
+      type: object
+      properties:
+        field:
+          type: string
+        message:
+          type: string

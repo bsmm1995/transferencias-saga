@@ -1,0 +1,91 @@
+openapi: 3.0.3
+info:
+  title: Fraud Engine API (mock)
+  version: 1.0.0
+  description: Real-time risk scoring evaluated before any money moves.
+servers:
+  - url: http://localhost:8082
+tags:
+  - name: Risk
+paths:
+  /fraud/v1/evaluations:
+    post:
+      tags: [Risk]
+      operationId: evaluateRisk
+      summary: Score a transfer before the debit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiskEvaluationRequest'
+      responses:
+        '200':
+          description: Evaluation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskEvaluation'
+        '400':
+          description: Invalid request.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+components:
+  schemas:
+    RiskEvaluationRequest:
+      type: object
+      required: [transferId, customerId, sourceAccount, beneficiaryBankCode, beneficiaryAccount, amount, currency]
+      properties:
+        transferId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          maxLength: 40
+        sourceAccount:
+          type: string
+          pattern: '^[0-9]{10}$'
+        beneficiaryBankCode:
+          type: string
+          pattern: '^[0-9]{3}$'
+        beneficiaryAccount:
+          type: string
+          pattern: '^[0-9]{10}$'
+        amount:
+          type: number
+          minimum: 0.01
+        currency:
+          type: string
+          maxLength: 3
+    RiskEvaluation:
+      type: object
+      required: [decision, score, reasons]
+      properties:
+        decision:
+          type: string
+          enum: [APPROVE, DENY]
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        reasons:
+          type: array
+          items:
+            type: string
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        code:
+          type: string
+        correlationId:
+          type: string

@@ -1,0 +1,16 @@
+[versions]
+quarkus = "3.40.1.2"
+openapi-generator = "7.27.0"
+lombok = "1.18.48"
+archunit = "1.5.1"
+assertj = "3.27.7"
+
+[libraries]
+quarkus-bom = { module = "io.quarkus.platform:quarkus-bom", version.ref = "quarkus" }
+lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+
+# Plugin artifacts consumed by the convention plugins in build-logic.
+quarkus-gradle-plugin = { module = "io.quarkus:gradle-application-plugin", version.ref = "quarkus" }
+openapi-generator-gradle-plugin = { module = "org.openapitools:openapi-generator-gradle-plugin", version.ref = "openapi-generator" }
